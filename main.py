@@ -47,7 +47,7 @@ def example_datafile():
     n_z = 6
     # Plasma will be rotated by 'phi_0' angle around 'Z' axis comparing to its default state.
     phi_0 = 3.6411293856408307  # (~ pi + 1/2)
-    # The luminosity of plasma will e changing gradiently,
+    # The luminosity of plasma will be changing gradiently,
     # for 'lum_nuc' at the center to 'lum_cor' on the edges.
     lum_cor = 0
     lum_nuc = 1
