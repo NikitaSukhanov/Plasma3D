@@ -3,28 +3,85 @@ from collections import namedtuple
 import numpy as np
 
 from math_utils import Vector3D, EPSILON
+from utils import documentation_inheritance
 
 
 class Pixel:
+    """ Single pixel of detector, has its position and direction to aperture"""
+
     def __init__(self, pos, aperture):
-        self._pos = pos.copy()
+        """
+        Parameters
+        ----------
+        pos : Vector3D
+            Position of pixel.
+        aperture : Vector3D
+            Position of aperture.
+        """
+        self._pos = Vector3D(*pos)
         self._e = (aperture - pos).normalize()
 
     @property
     def pos(self):
+        """
+        Returns
+        -------
+        Vector3D
+            Position of pixel.
+        """
         return self._pos
 
     @property
     def dir(self):
+        """
+        Returns
+        -------
+        Vector3D
+            Direction to aperture.
+        """
         return self._e
 
 
 class Detector:
+    """
+    Detector is a rectangular plate of pixels with the aperture point outside the plate.
+
+    Attributes:
+    -----------
+        - detector_metrics
+        - rows
+        - cols
+        - n_pixels
+    """
     DetectorMetrics = namedtuple('DetectorMetrics', ['aperture', 'center', 'corner',
                                                      'normal', 'tangent', 'top',
                                                      'height', 'width', 'angle'])
 
     def __init__(self, center, aperture, height=1.0, width=1.0, angle=0.0):
+        """
+        The position and orientation of the plate is determined by following:
+            - Center of plate is given by 'center'.
+            - Plate is always oriented such way that it's normal vector points
+              from the center to aperture.
+            - After first two steps the only remaining degree of freedom is the
+              angle of rotation of plate around it's normal, which is given by 'angle'.
+            - By default ('angle = 0') the 'width' side of the plate is aligned with XY plane.
+              If the plate is horizontal then by default 'width' is aligned with X axis and
+              'height' is aligned with Y axis.
+
+        Parameters
+        ----------
+        center : iterable
+            Center of rectangular plate (detector matrix).
+        aperture : iterable
+            Position of aperture.
+        height : float, optional
+            Height of rectangular plate.
+        width : float, optional
+            Height of rectangular plate.
+        angle : float, optional
+            Angle of rotation of plate around its normal.
+        """
         aperture = Vector3D(*aperture)
         center = Vector3D(*center)
         normal = (aperture - center).normalize()
@@ -58,21 +115,62 @@ class Detector:
 
     @property
     def detector_metrics(self):
+        """
+        Returns the parameters of detector.
+        Orientation of plate is determined by local basis of 3 orthogonal vectors:
+
+        - 'normal' - vector which is orthogonal to plate
+        - 'tangent' - vector aligned with 'width' of plate
+        - 'top' - vector aligned with 'height' of plate
+
+        Returns
+        -------
+        Detector.DetectorMetrics
+        """
         return self._detector_metrics
 
     @property
     def rows(self):
+        """
+        Returns number of rows of pixels.
+
+        Returns
+        -------
+        int
+        """
         return self._rows
 
     @property
     def cols(self):
+        """
+        Returns number of pixels in each row.
+
+        Returns
+        -------
+        int
+        """
         return self._cols
 
     @property
     def n_pixels(self):
+        """
+        Returns total number of pixels on detector plate.
+
+        Returns
+        -------
+        int
+        """
         return len(self.pixels)
 
     def set_pixels(self, rows=1, cols=1):
+        """
+        Specifies the number of pixels.
+
+        Parameters
+        ----------
+        rows : int, optional
+        cols : int, optional
+        """
         if rows <= 0 or cols <= 0:
             raise ValueError('Numbers of rows and columns must be positive.')
 
@@ -99,6 +197,20 @@ class Detector:
         assert self.n_pixels == self.cols * self.rows
 
     def build_chord_matrix(self, plasma):
+        """
+        Builds the chord matrix by given plasma model, '(i, j)' element of matrix
+        is the length of intersection of ray from 'i' pixel with 'j' segment.
+
+        Parameters
+        ----------
+        plasma : Any
+            Plasma must contain list 'plasma.segments' and int field 'plasma.n_segments'.
+            Each segment in list must implement 'intersection_length(p, e)' method.
+
+        Returns
+        -------
+        np.ndarray
+        """
         n = plasma.n_segments
         m = self.n_pixels
         matrix = np.zeros((m, n))
@@ -109,6 +221,24 @@ class Detector:
         return matrix
 
     def right_part(self, plasma):
+        """
+        Calculates the right-part vector of detector pixels' measurements.
+        Parameters
+        ----------
+        plasma : Any
+            Plasma must contain iterable 'plasma.segments'.
+            Each segment must have 'segment.lum' float field
+            and implement 'intersection_length(p, e)' method.
+
+        Returns
+        -------
+        np.ndarray
+
+        Notes
+        -----
+        The luminosity of segments must be specified before calling this.
+        The result must be equal to 'detector.build_chord_matrix(plasma).dot(plasma.solution)'.
+        """
         m = self.n_pixels
         res = np.zeros(m)
         for i in range(m):
@@ -119,10 +249,29 @@ class Detector:
 
 
 class DetectorDrawable(Detector):
+    @documentation_inheritance(Detector.__init__)
     def __init__(self, center, aperture, height=1.0, width=1.0, angle=0.0):
         super().__init__(center=center, aperture=aperture, height=height, width=width, angle=angle)
 
     def plot(self, ax, lines_length=None, **kwargs):
+        """
+        Draws the detector.
+
+        Parameters
+        ----------
+        ax :
+            Axes3D object from matplotlib.
+        lines_length : float, optional
+            The length of rays to draw from each pixel of detector.
+            If None (by default) or 0 no rays will be drawn.
+        kwargs :
+             Keyword arguments which will be passed to all 'plot',
+             'plot_surface' and 'scatter' methods.
+
+        See also
+        --------
+        DetectorDrawable.lines_length_calculate
+        """
         kwargs.setdefault('color', 'b')
         self._plot_plane(ax, **kwargs)
         self._plot_borders(ax, **kwargs)
@@ -132,6 +281,21 @@ class DetectorDrawable(Detector):
             self._plot_lines(ax, lines_length, **kwargs)
 
     def lines_length_calculate(self, plasma):
+        """
+        Calculates the 'lines_length' argument for 'plot' method.
+        The length is not less then distance from any detector pixel
+        to any point of cylindrical plasma.
+
+        Parameters
+        ----------
+        plasma : Any
+            Plasma must have 'plasma.plasma_metrics' field,
+            which has 'z_min', 'z_max' and 'r_max' float fields.
+
+        Returns
+        -------
+        float
+        """
         pm = plasma.plasma_metrics
         plasma_center = Vector3D(0.0, 0.0, (pm.z_min + pm.z_max) / 2.0)
         plasma_radius = plasma_center.dist((pm.r_max, 0.0, pm.z_max))

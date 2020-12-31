@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-import tests
 from cylindrical_plasma import CylindricalPlasma, PlasmaDrawable
 from detector import Detector, DetectorDrawable
 from utils import iter_to_str
@@ -10,6 +9,7 @@ from math_utils import Vector3D, EPSILON, dist
 
 
 def generate_file(plasma, detector, filename_prefix=''):
+    """ Generates data-file for given plasma and detector. """
     # Ax = b
     A = detector.build_chord_matrix(plasma)
     x = plasma.solution
