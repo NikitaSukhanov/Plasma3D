@@ -424,6 +424,24 @@ class CylindricalPlasma:
         for segment in self.segments:
             segment.rotate(phi)
 
+    def lum_piece_of_cake(self, lum):
+        """
+        Generates 'piece of cake' luminosity for plasma segments.
+        (Only the segments between 'phi0' and 'phi0 + d_phi' will have nonzero luminosity)
+
+        Parameters
+        ----------
+        lum : float
+            The luminosity of segments.
+
+        See also
+        --------
+        CylindricalPlasma.solution
+        """
+        gm = self.grid_metrics
+        for i in range(self.n_segments):
+            self.segments[i].lum = lum * (i % gm.n_phi == 0)
+
     def lum_gradient(self, lum_cor, lum_nuc):
         """
         Generates gradient luminosity for plasma segments.

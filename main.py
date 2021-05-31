@@ -49,8 +49,8 @@ def example_datafile():
     phi_0 = 3.6411293856408307  # (~ pi + 1/2)
     # The luminosity of plasma will be changing gradiently,
     # for 'lum_nuc' at the center to 'lum_cor' on the edges.
-    lum_cor = 0
-    lum_nuc = 1
+    lum_cor = 0.0
+    lum_nuc = 1.0
 
     # detector metrics
     center = -1.5, -1.5, 0.0  # center of detector's matrix
@@ -79,6 +79,11 @@ def example_datafile():
     detector.set_pixels(rows=rows, cols=cols)
     # generating data-file with specified geometry
     generate_file(plasma=plasma, detector=detector, filename_prefix='examples/gradient_')
+
+    # assigning 'piece of cake' luminosity to each segment
+    plasma.lum_piece_of_cake(lum=lum_nuc)
+    # generating data-file with specified geometry
+    generate_file(plasma=plasma, detector=detector, filename_prefix='examples/poc_')
 
 
 def example_plot():
