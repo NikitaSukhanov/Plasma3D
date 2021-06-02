@@ -2,8 +2,8 @@ from collections import namedtuple
 
 import numpy as np
 
-from math_utils import Vector3D, EPSILON
-from utils import documentation_inheritance
+from utils.math_utils import Vector3D, EPSILON
+from utils.utils import documentation_inheritance
 
 
 class Pixel:

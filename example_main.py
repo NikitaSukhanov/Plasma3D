@@ -2,10 +2,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-from cylindrical_plasma import CylindricalPlasma, PlasmaDrawable
-from detector import Detector, DetectorDrawable
-from utils import iter_to_str
-from math_utils import Vector3D, EPSILON, dist
+from plasma_lib.cylindrical_plasma import CylindricalPlasma, PlasmaDrawable
+from plasma_lib.detector import Detector, DetectorDrawable
+from utils.utils import iter_to_str
+from utils.math_utils import Vector3D, EPSILON, dist
 
 
 def generate_file(plasma, detector, filename_prefix=''):

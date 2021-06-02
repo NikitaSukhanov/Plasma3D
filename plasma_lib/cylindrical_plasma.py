@@ -3,8 +3,8 @@ from collections import namedtuple
 
 import numpy as np
 
-from math_utils import Vector2D, Vector3D, EPSILON
-from utils import documentation_inheritance
+from utils.math_utils import Vector2D, Vector3D, EPSILON
+from utils.utils import documentation_inheritance
 
 
 def angle_normalize(angle):
@@ -557,7 +557,6 @@ class PlasmaDrawable(CylindricalPlasma):
         for i in range(start_index, start_index + gm.n_phi * gm.n_r):
             kwargs['alpha'] = self.segments[i].lum / (lum_max + 0.5)
             self.plot_segment_2d(ax_polar, i, **kwargs)
-        # self.plot_segment_2d(ax_polar, 1, **kwargs)
 
     def plot_segment_2d(self, ax_polar, segment_number, **kwargs):
         """
