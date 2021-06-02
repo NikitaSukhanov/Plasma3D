@@ -64,15 +64,15 @@ class FullCircleSegment:
         """
         if r_min > r_max or z_min > z_max:
             raise ValueError("Arguments must satisfy: 'r_min <= r_max' and 'z_min <= z_max'")
-        self._r_min = r_min
-        self._r_max = r_max
-        self._z_min = z_min
-        self._z_max = z_max
+        self.r_min = r_min
+        self.r_max = r_max
+        self.z_min = z_min
+        self.z_max = z_max
         self.lum = lum
 
     def __repr__(self):
         state = 'r_min={}, r_max={}, z_min={}, z_max={}'
-        return state.format(self._r_min, self._r_max, self._z_min, self._z_max)
+        return state.format(self.r_min, self.r_max, self.z_min, self.z_max)
 
     def intersection_points(self, p, e):
         """
@@ -89,11 +89,11 @@ class FullCircleSegment:
             Generator of pairs (t, q) - intersection points sorted ascending by 't'.
         """
         points = []
-        for z in (self._z_min, self._z_max):
+        for z in (self.z_min, self.z_max):
             points.extend(self._z_surface_intersection(z, p, e))
-        points.extend(self._r_surface_intersection(self._r_max, p, e))
-        if self._r_min > EPSILON:
-            points.extend(self._r_surface_intersection(self._r_min, p, e))
+        points.extend(self._r_surface_intersection(self.r_max, p, e))
+        if self.r_min > EPSILON:
+            points.extend(self._r_surface_intersection(self.r_min, p, e))
         return self._points_filter(points)
 
     def intersection_length(self, p, e):
@@ -126,7 +126,7 @@ class FullCircleSegment:
         c = p.x ** 2 + p.y ** 2 - r ** 2
         for t in qe_solve(a, k, c):
             q = p + t * e
-            if self._z_min <= q.z <= self._z_max:
+            if self.z_min <= q.z <= self.z_max:
                 yield t, q
 
     def _z_surface_intersection(self, z, p, e):
@@ -134,7 +134,7 @@ class FullCircleSegment:
             return
         t = (z - p.z) / e.z
         q = p + t * e
-        if self._r_min <= q.r <= self._r_max:
+        if self.r_min <= q.r <= self.r_max:
             yield t, q
 
     @staticmethod
@@ -169,13 +169,13 @@ class PhiBoundedSegment(FullCircleSegment):
         super().__init__(r_min=r_min, r_max=r_max, z_min=z_min, z_max=z_max, lum=lum)
         if phi_min > phi_max:
             raise ValueError("Arguments must satisfy: 'phi_min <= phi_max'")
-        self._phi_min = phi_min
-        self._phi_max = phi_max
+        self.phi_min = phi_min
+        self.phi_max = phi_max
         self.rotate(0.0)
 
     def __repr__(self):
         state = 'r_min={}, r_max={}, phi_min={}, phi_max={}, z_min={}, z_max={}'
-        return state.format(self._r_min, self._r_max, self._phi_min, self._phi_max, self._z_min, self._z_max)
+        return state.format(self.r_min, self.r_max, self.phi_min, self.phi_max, self.z_min, self.z_max)
 
     def rotate(self, phi):
         """
@@ -187,21 +187,21 @@ class PhiBoundedSegment(FullCircleSegment):
             Angle of rotation.
         """
         phi = angle_normalize(phi)
-        self._phi_min += phi
-        self._phi_max += phi
-        if self._phi_min >= 2.0 * np.pi:
-            self._phi_min = angle_normalize(self._phi_min)
-            self._phi_max = angle_normalize(self._phi_max)
-        assert self._phi_min <= self._phi_max
+        self.phi_min += phi
+        self.phi_max += phi
+        if self.phi_min >= 2.0 * np.pi:
+            self.phi_min = angle_normalize(self.phi_min)
+            self.phi_max = angle_normalize(self.phi_max)
+        assert self.phi_min <= self.phi_max
 
     @documentation_inheritance(FullCircleSegment.intersection_points)
     def intersection_points(self, p, e):
         points = []
-        for z in (self._z_min, self._z_max):
+        for z in (self.z_min, self.z_max):
             points.extend(self._z_surface_intersection(z, p, e))
-        for phi in (self._phi_min, self._phi_max):
+        for phi in (self.phi_min, self.phi_max):
             points.extend(self._phi_surface_intersection(phi, p, e))
-        for r in (self._r_min, self._r_max):
+        for r in (self.r_min, self.r_max):
             points.extend(self._r_surface_intersection(r, p, e))
         return self._points_filter(points)
 
@@ -227,14 +227,14 @@ class PhiBoundedSegment(FullCircleSegment):
         if EPSILON < abs(phi - q.phi) < 2.0 * np.pi - EPSILON:
             # opposite half-plane
             return
-        if self._z_min <= q.z <= self._z_max and self._r_min <= q.r <= self._r_max:
+        if self.z_min <= q.z <= self.z_max and self.r_min <= q.r <= self.r_max:
             yield t, q
 
     def _phi_bounds_check(self, phi):
         phi = angle_normalize(phi)
-        if self._phi_max <= 2.0 * np.pi:
-            return self._phi_min <= phi <= self._phi_max
-        return self._phi_min <= phi <= 2.0 * np.pi or 0.0 <= phi <= angle_normalize(self._phi_max)
+        if self.phi_max <= 2.0 * np.pi:
+            return self.phi_min <= phi <= self.phi_max
+        return self.phi_min <= phi <= 2.0 * np.pi or 0.0 <= phi <= angle_normalize(self.phi_max)
 
 
 class CylindricalPlasma:
@@ -424,6 +424,24 @@ class CylindricalPlasma:
         for segment in self.segments:
             segment.rotate(phi)
 
+    def lum_piece_of_cake(self, lum):
+        """
+        Generates 'piece of cake' luminosity for plasma segments.
+        (Only the segments between 'phi0' and 'phi0 + d_phi' will have nonzero luminosity)
+
+        Parameters
+        ----------
+        lum : float
+            The luminosity of segments.
+
+        See also
+        --------
+        CylindricalPlasma.solution
+        """
+        gm = self.grid_metrics
+        for i in range(self.n_segments):
+            self.segments[i].lum = lum * (i % gm.n_phi == 0)
+
     def lum_gradient(self, lum_cor, lum_nuc):
         """
         Generates gradient luminosity for plasma segments.
@@ -495,6 +513,79 @@ class PlasmaDrawable(CylindricalPlasma):
         self._plot_outer_surface(ax, **kwargs)
         self._plot_rz_separation(ax, **kwargs)
         self._plot_phi_separation(ax, **kwargs)
+
+    def plot_horizontal_section(self, ax_polar, z_number=0, **kwargs):
+        """
+        Draws the horizontal section (on given level) of plasma.
+        Requires polar axes !!!
+
+        Parameters
+        ----------
+        ax_polar :
+            PolarAxesSubplot object from matplotlib.
+        z_number : int, optional
+            Number of horizontal section
+        kwargs :
+            Keyword arguments which will be passed to all 'plot' and 'fill_between' methods.
+        """
+        pm = self._plasma_metrics
+        gm = self.grid_metrics
+        if not 0 <= z_number < gm.n_z:
+            raise ValueError("'z_number' must satisfy '0 <= z_number < gm.n_z'")
+        color = np.array([1.0, 0.0, 0.0])
+        kwargs.setdefault('color', color)
+        num = 50
+
+        # draw r separation (circles)
+        ones = np.ones(num)
+        phi = np.linspace(0.0, 2.0 * np.pi, num)
+        r = pm.r_min
+        for i in range(gm.n_r + 1):
+            ax_polar.plot(phi, r * ones, **kwargs)
+            r += gm.d_r
+
+        # draw phi separation (lines)
+        if gm.n_phi > 1:
+            phi = self.phi_0
+            for i in range(gm.n_phi):
+                ax_polar.plot([phi, phi], [pm.r_min, pm.r_max], **kwargs)
+                phi += gm.d_phi
+
+        # fill segments according to their luminance
+        lum_max = max(self.solution)
+        start_index = z_number * gm.n_phi * gm.n_r
+        for i in range(start_index, start_index + gm.n_phi * gm.n_r):
+            kwargs['alpha'] = self.segments[i].lum / (lum_max + 0.5)
+            self.plot_segment_2d(ax_polar, i, **kwargs)
+        # self.plot_segment_2d(ax_polar, 1, **kwargs)
+
+    def plot_segment_2d(self, ax_polar, segment_number, **kwargs):
+        """
+        Draws the horizontal section of plasma segment.
+        Requires polar axes !!!
+
+        Parameters
+        ----------
+        ax_polar :
+            PolarAxesSubplot object from matplotlib.
+        segment_number : int
+            Number of segment.
+        kwargs :
+            Keyword arguments which will be passed 'fill_between' method.
+        """
+        if not 0 <= segment_number < self.n_segments:
+            raise ValueError("'segment_number' must satisfy '0 <= segment_number < self.n_segments'")
+        segment = self.segments[segment_number]
+        gm = self.grid_metrics
+        num = 50
+        if gm.n_phi == 1:
+            assert segment.__class__ is FullCircleSegment
+            phi = np.linspace(0.0, 2.0 * np.pi + EPSILON, num)
+        else:
+            assert segment.__class__ is PhiBoundedSegment
+            phi = np.linspace(segment.phi_min, segment.phi_max, num)
+        kwargs.setdefault('linewidth', 0.0)
+        ax_polar.fill_between(phi, segment.r_min, segment.r_max, **kwargs)
 
     def _plot_outer_surface(self, ax, **kwargs):
         pm = self._plasma_metrics
