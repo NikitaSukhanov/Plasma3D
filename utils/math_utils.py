@@ -55,6 +55,12 @@ class Vector2D(np.ndarray):
         self.y = x * sin + y * cos
         return self
 
+    @classmethod
+    def from_r_phi(cls, r=0.0, phi=0.0):
+        x = r * np.cos(phi)
+        y = r * np.sin(phi)
+        return cls(x, y)
+
 
 class Vector3D(Vector2D):
     class _SliceDescriptor:
@@ -85,6 +91,12 @@ class Vector3D(Vector2D):
     @classmethod
     def from_2d(cls, xy, z=0.0):
         return cls(xy[0], xy[1], z)
+
+    @classmethod
+    def from_r_phi_z(cls, r=0.0, phi=0.0, z=0.0):
+        x = r * np.cos(phi)
+        y = r * np.sin(phi)
+        return cls(x, y, z)
 
 
 @functools.lru_cache(maxsize=256)

@@ -514,7 +514,7 @@ class PlasmaDrawable(CylindricalPlasma):
         self._plot_rz_separation(ax, **kwargs)
         self._plot_phi_separation(ax, **kwargs)
 
-    def plot_horizontal_section(self, ax_polar, z_number=0, **kwargs):
+    def plot_horizontal_section(self, ax_polar, z_number=0, phi_sep=True, **kwargs):
         """
         Draws the horizontal section (on given level) of plasma.
         Requires polar axes !!!
@@ -525,6 +525,8 @@ class PlasmaDrawable(CylindricalPlasma):
             PolarAxesSubplot object from matplotlib.
         z_number : int, optional
             Number of horizontal section
+        phi_sep : bool, optional
+            Flag, indicating whether to draw phi separation.
         kwargs :
             Keyword arguments which will be passed to all 'plot' and 'fill_between' methods.
         """
@@ -545,7 +547,7 @@ class PlasmaDrawable(CylindricalPlasma):
             r += gm.d_r
 
         # draw phi separation (lines)
-        if gm.n_phi > 1:
+        if gm.n_phi > 1 and phi_sep:
             phi = self.phi_0
             for i in range(gm.n_phi):
                 ax_polar.plot([phi, phi], [pm.r_min, pm.r_max], **kwargs)

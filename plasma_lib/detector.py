@@ -292,7 +292,7 @@ class DetectorDrawable(Detector):
         lines_length : float, optional
             The length of rays to draw from each pixel of detector.
             If None (by default) or 0 no rays will be drawn.
-        kwargs : 
+        kwargs :
             Keyword arguments which will be passed to all 'plot',
             'plot_surface' and 'scatter' methods.
 

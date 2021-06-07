@@ -118,8 +118,45 @@ def example_plot():
                 points = segment.intersection_points(pixel.pos, pixel.dir)
                 for _, point in points:
                     ax.scatter(*point, color=color)
-    plt.show()
+
+
+def example_plot_2d():
+    """
+    Example of drawing 2d geometry projection and detectors' measurements with several detectors.
+    """
+    # creating plasma and 3 different detectors
+    plasma = PlasmaDrawable(r_min=0.0, r_max=1.0, z_min=-1.0, z_max=1.0)
+    plasma.rotate(-0.2)
+    plasma.build_segmentation(n_r=1, n_phi=16, n_z=1)
+    plasma.lum_piece_of_cake(lum=1.0)
+    detectors = []
+    for i in range(3):
+        phi = i * 2.0 * np.pi / 3
+        center = Vector3D.from_r_phi(r=2.0, phi=phi)
+        aperture = center / 8.0 * 5.0
+        d = DetectorDrawable(center=center, aperture=aperture, height=0.3, width=0.3)
+        d.set_pixels(rows=3, cols=16)
+        detectors.append(d)
+
+    # setup plot
+    fig, axs = plt.subplots(2, 2)
+    axs = axs.reshape(4)
+    ax_polar = fig.add_subplot(221, projection='polar')
+    ax_polar.set_title('Horizontal section')
+
+    # plot plasma
+    plasma.plot_horizontal_section(ax_polar, phi_sep=False, color='red')
+
+    # plot detectors and their measurements
+    for i, color in zip((range(3)), ('green', 'blue', 'black')):
+        d = detectors[i]
+        d.plot_polar_projection(ax_polar, lines_length=d.lines_length_calculate(plasma), color=color)
+        measurements = d.right_part(plasma)
+        axs[i + 1].set_title('{} detector'.format(color))
+        d.plot_right_part(axs[i + 1], measurements)
 
 
 example_datafile()
 example_plot()
+example_plot_2d()
+plt.show()
