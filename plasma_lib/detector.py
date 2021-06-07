@@ -280,6 +280,61 @@ class DetectorDrawable(Detector):
         if lines_length:
             self._plot_lines(ax, lines_length, **kwargs)
 
+    def plot_polar_projection(self, ax_polar, lines_length=None, **kwargs):
+        """
+        Draws the horizontal projection of detector.
+        Requires polar axes !!!
+
+        Parameters
+        ----------
+        ax_polar :
+             PolarAxesSubplot object from matplotlib.
+        lines_length : float, optional
+            The length of rays to draw from each pixel of detector.
+            If None (by default) or 0 no rays will be drawn.
+        kwargs : 
+            Keyword arguments which will be passed to all 'plot',
+            'plot_surface' and 'scatter' methods.
+
+        See also
+        --------
+        DetectorDrawable.lines_length_calculate
+        """
+        dm = self.detector_metrics
+        corners = self._corners_calculate()
+        c1, c2 = Vector3D(*corners[0]), Vector3D(*corners[2])
+        kwargs.setdefault('color', 'blue')
+        ax_polar.plot([c1.phi, c2.phi], [c1.r, c2.r], **kwargs)
+        if lines_length:
+            for c in c1, c2:
+                p = c + lines_length * (dm.aperture - c).normalize()
+                ax_polar.plot([c.phi, p.phi], [c.r, p.r], **kwargs)
+        kwargs.setdefault('facecolors', [0.0, 0.0, 0.0, 0.0])
+        kwargs.setdefault('edgecolors', kwargs['color'])
+        ax_polar.scatter(dm.aperture.phi, dm.aperture.r, **kwargs)
+
+    def plot_right_part(self, ax, right_part, **kwargs):
+        """
+        Draws detector pixels' measurements in 2d pixel-plot.
+
+        Parameters
+        ----------
+        ax :
+            AxesSubplot object from matplotlib.
+        right_part :  np.ndarray
+            Vector of detector pixels' measurements.
+        kwargs :
+              Keyword arguments which will be passed 'pcolormesh' method.
+
+        See also
+        --------
+        DetectorDrawable.right_part
+        """
+        if len(right_part) != self.n_pixels:
+            raise ValueError("'right_part' must satisfy 'len(right_part) == self.n_pixels'")
+        matrix = right_part.reshape((self.rows, self.cols))
+        ax.pcolormesh(matrix, **kwargs)
+
     def lines_length_calculate(self, plasma):
         """
         Calculates the 'lines_length' argument for 'plot' method.
