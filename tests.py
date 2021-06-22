@@ -2,8 +2,10 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
-from plasma_lib.cylindrical_plasma import CylindricalPlasma, PlasmaDrawable
-from plasma_lib.detector import Detector, DetectorDrawable
+from plasma_lib.cylindrical_plasma import CylindricalPlasma
+from plasma_lib.plasma_drawable import PlasmaDrawable
+from plasma_lib.detector import Detector
+from plasma_lib.detector_drawable import DetectorDrawable
 from utils.math_utils import Vector3D, EPSILON
 
 
