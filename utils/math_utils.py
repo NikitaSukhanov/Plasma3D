@@ -1,12 +1,14 @@
 import functools
 
 import numpy as np
+from numpy import pi as pi
+from numpy.linalg import norm as norm
 
 EPSILON = 1e-10
 
 
 def dist(p, q):
-    return np.linalg.norm(p - q)
+    return norm(p - q)
 
 
 class Vector2D(np.ndarray):
@@ -29,7 +31,7 @@ class Vector2D(np.ndarray):
 
     @property
     def norm(self):
-        return np.linalg.norm(self)
+        return norm(self)
 
     @property
     def r(self):
@@ -85,7 +87,7 @@ class Vector3D(Vector2D):
         rotation_matrix = np.array([[cos + inv_cos * x ** 2, inv_cos * x * y - sin * z, inv_cos * x * z + sin * y],
                                     [inv_cos * y * x + sin * z, cos + inv_cos * y ** 2, inv_cos * y * z - sin * x],
                                     [inv_cos * x * z - sin * y, inv_cos * z * y + sin * x, cos + inv_cos * z ** 2]])
-        self[:] = rotation_matrix.dot(self)
+        self[:] = rotation_matrix @ self
         return self
 
     @classmethod
@@ -113,5 +115,5 @@ def _phi_from_xy(x, y):
     sin_phi = y / r
     phi = np.arccos(cos_phi)
     if sin_phi < 0.0:
-        phi = 2.0 * np.pi - phi
+        phi = 2.0 * pi - phi
     return phi

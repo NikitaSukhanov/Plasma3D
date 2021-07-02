@@ -7,25 +7,25 @@ from plasma_lib.plasma_drawable import PlasmaDrawable
 from plasma_lib.detector import Detector
 from plasma_lib.detector_drawable import DetectorDrawable
 from utils.utils import iter_to_str
-from utils.math_utils import Vector3D, EPSILON, dist
+from utils.math_utils import Vector3D, EPSILON, dist, pi
 
 
 def generate_file(plasma, detector, filename_prefix=''):
     """ Generates data-file for given plasma and detector. """
-    # Ax = b
-    A = detector.build_chord_matrix(plasma)
-    x = plasma.solution
-    b = detector.right_part(plasma)
-    assert dist(A.dot(x), b) < EPSILON
+    # LI = f
+    L = detector.build_chord_matrix(plasma)
+    I = plasma.solution
+    f = detector.right_part(plasma)
+    assert dist(L @ I, f) < EPSILON
 
     # generating full name of file
     filename = filename_prefix + '{}x{}.txt'.format(detector.n_pixels, plasma.n_segments)
     try:
         with open(filename, 'w') as file:
             # writing x, b and A into file, separated by one blank line
-            file.write(iter_to_str(x) + '\n\n')
-            file.write(iter_to_str(b) + '\n\n')
-            for row in A:
+            file.write(iter_to_str(I) + '\n\n')
+            file.write(iter_to_str(f) + '\n\n')
+            for row in L:
                 file.write(iter_to_str(row) + '\n')
             # writing geometry of plasma and detector after blank line
             file.write('\n' + plasma.__repr__() + '\n')
@@ -48,7 +48,7 @@ def example_datafile():
     n_phi = 6
     n_z = 6
     # Plasma will be rotated by 'phi_0' angle around 'Z' axis comparing to its default state.
-    phi_0 = 3.6411293856408307  # (~ pi + 1/2)
+    phi_0 = pi + 0.5
     # The luminosity of plasma will be changing gradiently,
     # for 'lum_nuc' at the center to 'lum_cor' on the edges.
     lum_cor = 0.0
@@ -133,7 +133,7 @@ def example_plot_2d():
     plasma.lum_piece_of_cake(lum=1.0)
     detectors = []
     for i in range(3):
-        phi = i * 2.0 * np.pi / 3
+        phi = i * 2.0 * pi / 3
         center = Vector3D.from_r_phi(r=2.0, phi=phi)
         aperture = center / 8.0 * 5.0
         d = DetectorDrawable(center=center, aperture=aperture, height=0.3, width=0.3)
@@ -158,7 +158,8 @@ def example_plot_2d():
         d.plot_right_part(axs[i + 1], measurements)
 
 
-example_datafile()
-example_plot()
-example_plot_2d()
-plt.show()
+if __name__ == '__main__':
+    example_datafile()
+    example_plot()
+    example_plot_2d()
+    plt.show()

@@ -1,9 +1,9 @@
 from operator import itemgetter
-from collections import namedtuple
+from collections import namedtuple, deque
 
 import numpy as np
 
-from utils.math_utils import Vector2D, Vector3D, EPSILON
+from utils.math_utils import Vector2D, Vector3D, EPSILON, pi
 from utils.utils import documentation_inheritance
 
 
@@ -19,7 +19,7 @@ def angle_normalize(angle):
     -------
     float
     """
-    return angle % (2.0 * np.pi)
+    return angle % (2.0 * pi)
 
 
 def qe_solve(a, k, c):
@@ -189,7 +189,7 @@ class PhiBoundedSegment(FullCircleSegment):
         phi = angle_normalize(phi)
         self.phi_min += phi
         self.phi_max += phi
-        if self.phi_min >= 2.0 * np.pi:
+        if self.phi_min >= 2.0 * pi:
             self.phi_min = angle_normalize(self.phi_min)
             self.phi_max = angle_normalize(self.phi_max)
         assert self.phi_min <= self.phi_max
@@ -224,7 +224,7 @@ class PhiBoundedSegment(FullCircleSegment):
             return
         t = - p.xy.dot(n) / e_dot_n
         q = p + t * e
-        if EPSILON < abs(phi - q.phi) < 2.0 * np.pi - EPSILON:
+        if EPSILON < abs(phi - q.phi) < 2.0 * pi - EPSILON:
             # opposite half-plane
             return
         if self.z_min <= q.z <= self.z_max and self.r_min <= q.r <= self.r_max:
@@ -232,9 +232,9 @@ class PhiBoundedSegment(FullCircleSegment):
 
     def _phi_bounds_check(self, phi):
         phi = angle_normalize(phi)
-        if self.phi_max <= 2.0 * np.pi:
+        if self.phi_max <= 2.0 * pi:
             return self.phi_min <= phi <= self.phi_max
-        return self.phi_min <= phi <= 2.0 * np.pi or 0.0 <= phi <= angle_normalize(self.phi_max)
+        return self.phi_min <= phi <= 2.0 * pi or 0.0 <= phi <= angle_normalize(self.phi_max)
 
 
 class CylindricalPlasma:
@@ -269,12 +269,14 @@ class CylindricalPlasma:
         self._grid_metrics = None
         self.segments = []
         self._phi_0 = 0
+        self._rotation_status = None
         self.build_segmentation(n_r=1, n_phi=1, n_z=1)
 
     def __repr__(self):
         state = 'n_segments={}, phi0={}\n'.format(self.n_segments, self.phi_0)
         state += self.plasma_metrics.__repr__() + '\n'
-        state += self.grid_metrics.__repr__()
+        state += self.grid_metrics.__repr__() + '\n'
+        state += '_rotation_status={}'.format(self._rotation_status)
         return state
 
     @property
@@ -335,6 +337,11 @@ class CylindricalPlasma:
         return len(self.segments)
 
     @property
+    def n_pol_rings(self):
+        gm = self.grid_metrics
+        return int(np.ceil(min(gm.n_r, gm.n_z) / 2))
+
+    @property
     def solution(self):
         """
         Returns the luminosity vector of segments
@@ -376,7 +383,7 @@ class CylindricalPlasma:
 
         pm = self._plasma_metrics
         d_r = (pm.r_max - pm.r_min) / n_r
-        d_phi = 2.0 * np.pi / n_phi
+        d_phi = 2.0 * pi / n_phi
         d_z = (pm.z_max - pm.z_min) / n_z
         self._grid_metrics = self.GridMetrics(n_r, n_phi, n_z, d_r, d_phi, d_z)
         self.segments.clear()
@@ -390,18 +397,24 @@ class CylindricalPlasma:
                     self.segments.append(segment)
                     r += d_r
                 z += d_z
-            return
+        else:
+            for i in range(n_z):
+                r = pm.r_min
+                for j in range(n_r):
+                    phi = self.phi_0
+                    for k in range(n_phi):
+                        segment = PhiBoundedSegment(r, r + d_r, phi, phi + d_phi, z, z + d_z)
+                        self.segments.append(segment)
+                        phi += d_phi
+                    r += d_r
+                z += d_z
 
-        for i in range(n_z):
-            r = pm.r_min
-            for j in range(n_r):
-                phi = self.phi_0
-                for k in range(n_phi):
-                    segment = PhiBoundedSegment(r, r + d_r, phi, phi + d_phi, z, z + d_z)
-                    self.segments.append(segment)
-                    phi += d_phi
-                r += d_r
-            z += d_z
+        n_pol_rings = self.n_pol_rings
+        self._rotation_status = [[0.0] * n_pol_rings for i in range(n_phi)]
+        # some empirical magic
+        if n_r > n_z and n_r % 2 and n_z % 2:
+            for i in range(n_phi):
+                self._rotation_status[i][n_pol_rings - 1] = 0.5
         assert self.n_segments == n_r * n_phi * n_z
 
     def rotate(self, phi):
@@ -424,6 +437,10 @@ class CylindricalPlasma:
         for segment in self.segments:
             segment.rotate(phi)
 
+    def lum_constant(self, lum=0.0):
+        for segment in self.segments:
+            segment.lum = lum
+
     def lum_piece_of_cake(self, lum):
         """
         Generates 'piece of cake' luminosity for plasma segments.
@@ -438,9 +455,9 @@ class CylindricalPlasma:
         --------
         CylindricalPlasma.solution
         """
-        gm = self.grid_metrics
-        for i in range(self.n_segments):
-            self.segments[i].lum = lum * (i % gm.n_phi == 0)
+        self.lum_constant(0.0)
+        for i in self.get_vertical_section(0):
+            self.segments[i].lum = lum
 
     def lum_gradient(self, lum_cor, lum_nuc):
         """
@@ -489,3 +506,121 @@ class CylindricalPlasma:
                 z = nuc_dist(z, n_div_2=n_z_div_2, n_mod_2=n_z_mod_2)
                 dist = (r + z) / dist_max
             self.segments[i].lum = lum_cor * dist + lum_nuc * (1.0 - dist)
+
+    def lum_toroidal_segment(self, lum_cor, lum_nuc):
+        gm = self.grid_metrics
+        r_edge = (gm.n_r - 1) // 2
+        z_edge = (gm.n_z - 1) // 2
+        self.lum_constant(0.0)
+        for phi in range(gm.n_phi):
+            for r in range(r_edge):
+                for z in range(z_edge):
+                    self.segments[self._index_by_r_phi_z(r, phi, z)].lum = lum_nuc
+            for r in range(r_edge + 1):
+                self.segments[self._index_by_r_phi_z(r, phi, z_edge)].lum = lum_cor
+            for z in range(z_edge):
+                self.segments[self._index_by_r_phi_z(r_edge, phi, z)].lum = lum_cor
+
+    def lum_trapezoid(self, lum_cor, lum_nuc):
+        gm = self.grid_metrics
+        self.lum_constant(0.0)
+        r_mid = gm.n_r // 2
+        z_mid_1 = (gm.n_z - 1) // 2
+        z_mid_2 = gm.n_z // 2
+        for k in range(self.n_pol_rings):
+            r = r_mid + k
+            z1 = z_mid_1 - k
+            z2 = z_mid_2 + k
+            self.segments[self._index_by_r_phi_z(r, 0, z1)].lum = lum_cor
+            self.segments[self._index_by_r_phi_z(r, 0, z2)].lum = lum_cor
+            for z in range(z1 + 1, z2):
+                self.segments[self._index_by_r_phi_z(r, 0, z)].lum = lum_nuc
+
+    def lum_pol_rings(self, lum=1.0):
+        gm = self.grid_metrics
+        for phi in range(gm.n_phi):
+            for i in range(self.n_pol_rings):
+                for j in self.get_pol_ring(i, phi):
+                    self.segments[j].lum = (i + 1) * lum
+
+    def get_horizontal_section(self, z=0):
+        gm = self.grid_metrics
+        if not 0 <= z < gm.n_z:
+            raise ValueError("'z' must satisfy '0 <= z < gm.n_z'")
+        start_index = z * gm.n_phi * gm.n_r
+        return range(start_index, start_index + gm.n_phi * gm.n_r)
+
+    def get_vertical_section(self, phi=0):
+        gm = self.grid_metrics
+        if not 0 <= phi < gm.n_phi:
+            raise ValueError("'phi' must satisfy '0 <= phi < gm.n_phi'.")
+        for z in range(gm.n_z):
+            for r in range(gm.n_r):
+                yield self._index_by_r_phi_z(r, phi, z)
+
+    def get_pol_ring(self, ring, phi=0):
+        gm = self.grid_metrics
+        if not 0 <= ring < self.n_pol_rings:
+            raise ValueError("'ring' must satisfy '0 <= ring < self.n_pol_rings'.")
+        if not 0 <= phi < gm.n_phi:
+            raise ValueError("'phi' must satisfy '0 <= phi < gm.n_phi'.")
+        if gm.n_r - 2 * ring == 1:
+            yield from (self._index_by_r_phi_z(ring, phi, z) for z in range(ring, gm.n_z - ring))
+            return
+        if gm.n_z - 2 * ring == 1:
+            yield from (self._index_by_r_phi_z(r, phi, ring) for r in range(ring, gm.n_r - ring))
+            return
+
+        for r in range(ring, gm.n_r - ring - 1):
+            yield self._index_by_r_phi_z(r, phi, ring)
+        for z in range(ring, gm.n_z - ring - 1):
+            yield self._index_by_r_phi_z(gm.n_r - ring - 1, phi, z)
+        for r in range(gm.n_r - ring - 1, ring, -1):
+            yield self._index_by_r_phi_z(r, phi, gm.n_z - ring - 1)
+        for z in range(gm.n_z - ring - 1, ring, -1):
+            yield self._index_by_r_phi_z(ring, phi, z)
+
+    def shift_pol(self, n_steps=1):
+        gm = self.grid_metrics
+        cycle_lgh = len(list(self.get_pol_ring(0)))
+
+        for phi in range(gm.n_phi):
+            for i in range(self.n_pol_rings):
+                ring = list(self.get_pol_ring(i, phi))
+                self._rotation_status[phi][i] += n_steps * len(ring) / cycle_lgh
+                if gm.n_r - 2 * i == 1 or gm.n_z - 2 * i == 1:
+                    half_ring = len(ring) / 2.0
+                    shift = int(round((self._rotation_status[phi][i]) / half_ring))
+                    self._rotation_status[phi][i] -= half_ring * shift
+                    if shift % 2:
+                        self._ring_reverse(ring)
+                else:
+                    shift = int(round(self._rotation_status[phi][i]))
+                    self._rotation_status[phi][i] -= shift
+                    self._ring_rotate(ring, shift)
+
+    def _index_by_r_phi_z(self, r, phi, z):
+        gm = self.grid_metrics
+        return phi + r * gm.n_phi + z * gm.n_phi * gm.n_r
+
+    def _r_phi_z_by_index(self, index):
+        gm = self.grid_metrics
+        phi = index % gm.n_phi
+        index //= gm.n_phi
+        r = index % gm.n_r
+        z = index // gm.n_r
+        return r, phi, z
+
+    def _ring_rotate(self, ring, shift):
+        ring_segments = [self.segments[i] for i in ring]
+        lum_arr = deque([s.lum for s in ring_segments])
+        lum_arr.rotate(shift)
+        for i in range(len(ring_segments)):
+            ring_segments[i].lum = lum_arr[i]
+
+    def _ring_reverse(self, ring):
+        ring_segments = [self.segments[i] for i in ring]
+        lum_arr = [s.lum for s in ring_segments]
+        lum_arr.reverse()
+        for i in range(len(ring_segments)):
+            ring_segments[i].lum = lum_arr[i]

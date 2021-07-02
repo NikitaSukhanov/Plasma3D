@@ -1,3 +1,5 @@
+import matplotlib.patches as patches
+
 from plasma_lib.cylindrical_plasma import *
 
 
@@ -44,8 +46,8 @@ class PlasmaDrawable(CylindricalPlasma):
         gm = self.grid_metrics
         if not 0 <= z_number < gm.n_z:
             raise ValueError("'z_number' must satisfy '0 <= z_number < gm.n_z'")
-        color = np.array([1.0, 0.0, 0.0])
-        kwargs.setdefault('color', color)
+        kwargs.setdefault('color', np.array([1.0, 0.0, 0.0]))
+        kwargs.setdefault('linewidth', 1.0)
         num = 50
 
         # draw r separation (circles)
@@ -64,10 +66,44 @@ class PlasmaDrawable(CylindricalPlasma):
                 phi += gm.d_phi
 
         # fill segments according to their luminance
-        start_index = z_number * gm.n_phi * gm.n_r
-        for i in range(start_index, start_index + gm.n_phi * gm.n_r):
-            kwargs['alpha'] = self.segments[i].lum / (max(self.solution) + 0.5)
+        kwargs['linewidth'] = 0.0
+        lum_max = max(self.solution)
+        for i in self.get_horizontal_section(z_number):
+            kwargs['alpha'] = self.segments[i].lum / (lum_max + 0.5)
             self.plot_segment_horizontal(ax_polar, i, **kwargs)
+
+    def plot_vertical_section(self, ax, phi_number=0, grid_sep=True, **kwargs):
+        pm = self._plasma_metrics
+        gm = self.grid_metrics
+        if not 0 <= phi_number < gm.n_phi:
+            raise ValueError("'phi_number' must satisfy '0 <= phi_number < gm.n_phi'")
+        kwargs.setdefault('color', np.array([1.0, 0.0, 0.0]))
+        kwargs.setdefault('linewidth', 1.0)
+
+        # draw full grid
+        if grid_sep:
+            z = pm.z_min
+            for i in range(gm.n_z + 1):
+                ax.plot([pm.r_min, pm.r_max], [z, z], **kwargs)
+                z += gm.d_z
+            r = pm.r_min
+            for i in range(gm.n_r + 1):
+                ax.plot([r, r], [pm.z_min, pm.z_max], **kwargs)
+                r += gm.d_r
+        # else draw only outer rectangle
+        else:
+            rect = patches.Rectangle((pm.r_min, pm.z_min), pm.r_max - pm.r_min, pm.z_max - pm.z_min,
+                                     linewidth=kwargs['linewidth'],
+                                     edgecolor=kwargs['color'],
+                                     facecolor='none')
+            ax.add_patch(rect)
+
+        # fill segments according to their luminance
+        kwargs['linewidth'] = 0.0
+        lum_max = max(self.solution)
+        for i in self.get_vertical_section(phi_number):
+            kwargs['alpha'] = self.segments[i].lum / (lum_max + 0.5)
+            self.plot_segment_vertical(ax, i, **kwargs)
 
     def plot_segment_horizontal(self, ax_polar, segment_number, **kwargs):
         """
@@ -94,8 +130,27 @@ class PlasmaDrawable(CylindricalPlasma):
         else:
             assert segment.__class__ is PhiBoundedSegment
             phi = np.linspace(segment.phi_min, segment.phi_max, num)
-        kwargs.setdefault('linewidth', 0.0)
         ax_polar.fill_between(phi, segment.r_min, segment.r_max, **kwargs)
+
+    def plot_segment_vertical(self, ax, segment_number, **kwargs):
+        """
+        Draws the vertical section of plasma segment.
+
+        Parameters
+        ----------
+        ax :
+            AxesSubplot object from matplotlib.
+        segment_number : int
+            Number of segment.
+        kwargs :
+            Keyword arguments which will be passed 'fill_between' method.
+        """
+        if not 0 <= segment_number < self.n_segments:
+            raise ValueError("'segment_number' must satisfy '0 <= segment_number < self.n_segments'")
+        segment = self.segments[segment_number]
+        num = 2
+        r = np.linspace(segment.r_min, segment.r_max, num)
+        ax.fill_between(r, segment.z_min, segment.z_max, **kwargs)
 
     def _plot_outer_surface(self, ax, **kwargs):
         pm = self._plasma_metrics

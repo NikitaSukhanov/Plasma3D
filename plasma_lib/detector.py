@@ -3,7 +3,6 @@ from collections import namedtuple
 import numpy as np
 
 from utils.math_utils import Vector3D, EPSILON
-from utils.utils import documentation_inheritance
 
 
 class Pixel:
@@ -237,7 +236,7 @@ class Detector:
         Notes
         -----
         The luminosity of segments must be specified before calling this.
-        The result must be equal to 'detector.build_chord_matrix(plasma).dot(plasma.solution)'.
+        The result must be equal to 'detector.build_chord_matrix(plasma) @ plasma.solution'.
         """
         m = self.n_pixels
         res = np.zeros(m)
@@ -247,4 +246,10 @@ class Detector:
                 res[i] += segment.lum * segment.intersection_length(p, e)
         return res
 
-
+    def _corners_calculate(self):
+        dm = self._detector_metrics
+        return np.array([dm.corner,
+                         dm.corner + dm.tangent * dm.width,
+                         dm.corner + dm.tangent * dm.width + dm.top * dm.height,
+                         dm.corner + dm.top * dm.height,
+                         dm.corner])

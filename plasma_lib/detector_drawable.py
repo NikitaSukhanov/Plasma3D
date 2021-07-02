@@ -1,4 +1,7 @@
+import matplotlib.pyplot as plt
+
 from plasma_lib.detector import *
+from utils.utils import documentation_inheritance
 
 
 class DetectorDrawable(Detector):
@@ -68,7 +71,7 @@ class DetectorDrawable(Detector):
         kwargs.setdefault('edgecolors', kwargs['color'])
         ax_polar.scatter(dm.aperture.phi, dm.aperture.r, **kwargs)
 
-    def plot_right_part(self, ax, right_part, **kwargs):
+    def plot_right_part(self, ax, right_part, cbar=True, **kwargs):
         """
         Draws detector pixels' measurements in 2d pixel-plot.
 
@@ -78,6 +81,9 @@ class DetectorDrawable(Detector):
             AxesSubplot object from matplotlib.
         right_part :  np.ndarray
             Vector of detector pixels' measurements.
+        cbar :bool, optional
+            Flag, indicating whether to draw colorbar.
+
         kwargs :
               Keyword arguments which will be passed 'pcolormesh' method.
 
@@ -88,7 +94,9 @@ class DetectorDrawable(Detector):
         if len(right_part) != self.n_pixels:
             raise ValueError("'right_part' must satisfy 'len(right_part) == self.n_pixels'")
         matrix = right_part.reshape((self.rows, self.cols))
-        ax.pcolormesh(matrix, **kwargs)
+        img = ax.pcolormesh(matrix, **kwargs)
+        if cbar:
+            plt.colorbar(img, ax=ax)
 
     def lines_length_calculate(self, plasma):
         """
@@ -140,11 +148,3 @@ class DetectorDrawable(Detector):
             p1 = pixel.pos
             p2 = p1 + pixel.dir * lines_length
             ax.plot([p1.x, p2.x], [p1.y, p2.y], [p1.z, p2.z], **kwargs)
-
-    def _corners_calculate(self):
-        dm = self._detector_metrics
-        return np.array([dm.corner,
-                         dm.corner + dm.tangent * dm.width,
-                         dm.corner + dm.tangent * dm.width + dm.top * dm.height,
-                         dm.corner + dm.top * dm.height,
-                         dm.corner])

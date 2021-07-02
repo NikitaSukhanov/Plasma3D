@@ -132,3 +132,5 @@ dmypy.json
 ignore
 
 main.py
+algebra/algebra.py
+separation_analysis.txt
