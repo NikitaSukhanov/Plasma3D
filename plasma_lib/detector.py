@@ -236,7 +236,7 @@ class Detector:
         Notes
         -----
         The luminosity of segments must be specified before calling this.
-        The result must be equal to 'detector.build_chord_matrix(plasma) @ plasma.solution'.
+        The result must be equal to 'detector.build_chord_matrix(plasma) @ plasma.lum'.
         """
         m = self.n_pixels
         res = np.zeros(m)

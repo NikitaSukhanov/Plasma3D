@@ -7,8 +7,8 @@ from numpy.linalg import norm as norm
 EPSILON = 1e-10
 
 
-def dist(p, q):
-    return norm(p - q)
+def dist(p, q, **kwargs):
+    return norm(p - q, **kwargs)
 
 
 class Vector2D(np.ndarray):
@@ -42,13 +42,13 @@ class Vector2D(np.ndarray):
         return _phi_from_xy(self.x, self.y)
 
     def normalize(self):
-        norm = self.norm
-        if norm > EPSILON:
-            self.__imul__(1.0 / norm)
+        self_norm = self.norm
+        if self_norm > EPSILON:
+            self.__imul__(1.0 / self_norm)
         return self
 
-    def dist(self, other):
-        return dist(self, other)
+    def dist(self, other, **kwargs):
+        return dist(self, other, **kwargs)
 
     def rotate_2d(self, phi):
         sin, cos = np.sin(phi), np.cos(phi)
@@ -58,10 +58,10 @@ class Vector2D(np.ndarray):
         return self
 
     @classmethod
-    def from_r_phi(cls, r=0.0, phi=0.0):
+    def from_r_phi(cls, r=0.0, phi=0.0, **kwargs):
         x = r * np.cos(phi)
         y = r * np.sin(phi)
-        return cls(x, y)
+        return cls(x, y, **kwargs)
 
 
 class Vector3D(Vector2D):
@@ -91,14 +91,14 @@ class Vector3D(Vector2D):
         return self
 
     @classmethod
-    def from_2d(cls, xy, z=0.0):
-        return cls(xy[0], xy[1], z)
+    def from_2d(cls, xy, z=0.0, **kwargs):
+        return cls(xy[0], xy[1], z, **kwargs)
 
     @classmethod
-    def from_r_phi_z(cls, r=0.0, phi=0.0, z=0.0):
+    def from_r_phi_z(cls, r=0.0, phi=0.0, z=0.0, **kwargs):
         x = r * np.cos(phi)
         y = r * np.sin(phi)
-        return cls(x, y, z)
+        return cls(x, y, z, **kwargs)
 
 
 @functools.lru_cache(maxsize=256)

@@ -35,7 +35,7 @@ def qe_solve(a, k, c):
     Returns
     -------
     Generator[float]
-        Generator of solution (if there are no solutions generator will be empty).
+        Generator of solutions (if there are no solutions generator will be empty).
     """
     d = k ** 2 - a * c
     if d < 0:
@@ -249,7 +249,8 @@ class CylindricalPlasma:
         - plasma_metrics
         - grid_metrics
         - n_segments
-        - solution
+        - n_pol_rings
+        - lum
     """
     PlasmaMetrics = namedtuple('PlasmaMetrics', ['r_min', 'r_max', 'z_min', 'z_max'])
     GridMetrics = namedtuple('GridMetrics', ['n_r', 'n_phi', 'n_z', 'd_r', 'd_phi', 'd_z'])
@@ -276,7 +277,7 @@ class CylindricalPlasma:
         state = 'n_segments={}, phi0={}\n'.format(self.n_segments, self.phi_0)
         state += self.plasma_metrics.__repr__() + '\n'
         state += self.grid_metrics.__repr__() + '\n'
-        state += '_rotation_status={}'.format(self._rotation_status)
+        state += 'pol_rotation_state={}'.format(self._rotation_status)
         return state
 
     @property
@@ -342,7 +343,7 @@ class CylindricalPlasma:
         return int(np.ceil(min(gm.n_r, gm.n_z) / 2))
 
     @property
-    def solution(self):
+    def lum(self):
         """
         Returns the luminosity vector of segments
         (by default all elements is 0 through no luminosity set).
@@ -356,6 +357,14 @@ class CylindricalPlasma:
         CylindricalPlasma.lum_gradient
         """
         return np.array([s.lum for s in self.segments])
+
+    def pol_rotation_state(self, phi=None):
+        if phi is None:
+            return self._rotation_status
+        gm = self.grid_metrics
+        if not 0 <= phi < gm.n_phi:
+            raise ValueError("'phi' must satisfy '0 <= phi < gm.n_phi'.")
+        return self._rotation_status[phi]
 
     def build_segmentation(self, n_r=1, n_phi=1, n_z=1):
         """
@@ -410,11 +419,11 @@ class CylindricalPlasma:
                 z += d_z
 
         n_pol_rings = self.n_pol_rings
-        self._rotation_status = [[0.0] * n_pol_rings for i in range(n_phi)]
+        self._rotation_status = [[0.0] * n_pol_rings for phi in range(n_phi)]
         # some empirical magic
         if n_r > n_z and n_r % 2 and n_z % 2:
-            for i in range(n_phi):
-                self._rotation_status[i][n_pol_rings - 1] = 0.5
+            for phi in range(n_phi):
+                self._rotation_status[phi][n_pol_rings - 1] = 0.5
         assert self.n_segments == n_r * n_phi * n_z
 
     def rotate(self, phi):
@@ -437,75 +446,32 @@ class CylindricalPlasma:
         for segment in self.segments:
             segment.rotate(phi)
 
-    def lum_constant(self, lum=0.0):
+    def lum_constant(self, lum=1.0):
         for segment in self.segments:
             segment.lum = lum
 
-    def lum_piece_of_cake(self, lum):
+    def lum_piece_of_cake(self, lum=1.0, phi=0):
         """
         Generates 'piece of cake' luminosity for plasma segments.
-        (Only the segments between 'phi0' and 'phi0 + d_phi' will have nonzero luminosity)
+        (Only the segments with 'phi' polar angle will have nonzero luminosity)
 
         Parameters
         ----------
-        lum : float
+        lum : float, optional
             The luminosity of segments.
+        phi: int, optional
+            Number of piece.
 
         See also
         --------
-        CylindricalPlasma.solution
-        """
-        self.lum_constant(0.0)
-        for i in self.get_vertical_section(0):
-            self.segments[i].lum = lum
-
-    def lum_gradient(self, lum_cor, lum_nuc):
-        """
-        Generates gradient luminosity for plasma segments.
-        The luminosity will change from 'lum_cor' on the edges to 'lum_nuc' in the center.
-
-        Parameters
-        ----------
-        lum_cor : float
-            The coronary luminosity (on the edges).
-        lum_nuc : float
-            The nuclear luminosity (in the center).
-
-        Notes
-        -----
-        The center is defined considering the cylinder as a torus with a rectangular cross section.
-        So, the center will be a circle with z = '(z_min + z_max) / 2' and r = '(r_min + r_max) / 2'.
-
-        See also
-        --------
-        CylindricalPlasma.solution
+        CylindricalPlasma.lum
         """
         gm = self.grid_metrics
-        n_r_div_2 = gm.n_r // 2
-        n_r_mod_2 = gm.n_r % 2
-        n_z_div_2 = gm.n_z // 2
-        n_z_mod_2 = gm.n_z % 2
-        dist_max = n_r_div_2 + n_r_mod_2 + n_z_div_2 + n_z_mod_2 - 2
-
-        def nuc_dist(index, n_div_2, n_mod_2):
-            if n_mod_2:
-                return abs(index - n_div_2)
-            if index < n_div_2:
-                return n_div_2 - index - 1
-            return index - n_div_2
-
-        for i in range(self.n_segments):
-            if dist_max == 0:
-                dist = 0
-            else:
-                index = i // gm.n_phi
-                r = index % gm.n_r
-                r = nuc_dist(r, n_div_2=n_r_div_2, n_mod_2=n_r_mod_2)
-                index //= gm.n_r
-                z = index % gm.n_z
-                z = nuc_dist(z, n_div_2=n_z_div_2, n_mod_2=n_z_mod_2)
-                dist = (r + z) / dist_max
-            self.segments[i].lum = lum_cor * dist + lum_nuc * (1.0 - dist)
+        if not 0 <= phi < gm.n_phi:
+            raise ValueError("'phi' must satisfy '0 <= phi < gm.n_phi'.")
+        self.lum_constant(0.0)
+        for i in self.get_vertical_section(phi):
+            self.segments[i].lum = lum
 
     def lum_toroidal_segment(self, lum_cor, lum_nuc):
         gm = self.grid_metrics
@@ -542,6 +508,51 @@ class CylindricalPlasma:
             for i in range(self.n_pol_rings):
                 for j in self.get_pol_ring(i, phi):
                     self.segments[j].lum = (i + 1) * lum
+
+    def lum_gradient(self, lum_cor=0.0, lum_nuc=1.0):
+        """
+        Generates gradient luminosity for plasma segments.
+        The luminosity will change from 'lum_cor' on the edges to 'lum_nuc' in the center.
+
+        Parameters
+        ----------
+        lum_cor : float, optional
+            The coronary luminosity (on the edges).
+        lum_nuc : float, optional
+            The nuclear luminosity (in the center).
+
+        Notes
+        -----
+        The center is defined considering the cylinder as a torus with a rectangular cross section.
+        So, the center will be a circle with z = '(z_min + z_max) / 2' and r = '(r_min + r_max) / 2'.
+
+        See also
+        --------
+        CylindricalPlasma.lum
+        """
+        gm = self.grid_metrics
+        n_r_div_2 = gm.n_r // 2
+        n_r_mod_2 = gm.n_r % 2
+        n_z_div_2 = gm.n_z // 2
+        n_z_mod_2 = gm.n_z % 2
+        dist_max = n_r_div_2 + n_r_mod_2 + n_z_div_2 + n_z_mod_2 - 2
+
+        def nuc_dist(index, n_div_2, n_mod_2):
+            if n_mod_2:
+                return abs(index - n_div_2)
+            if index < n_div_2:
+                return n_div_2 - index - 1
+            return index - n_div_2
+
+        for i in range(self.n_segments):
+            if dist_max == 0:
+                dist = 0
+            else:
+                r, _, z = self._r_phi_z_by_index(i)
+                r_dist = nuc_dist(r, n_div_2=n_r_div_2, n_mod_2=n_r_mod_2)
+                z_dist = nuc_dist(z, n_div_2=n_z_div_2, n_mod_2=n_z_mod_2)
+                dist = (r_dist + z_dist) / dist_max
+            self.segments[i].lum = lum_cor * dist + lum_nuc * (1.0 - dist)
 
     def get_horizontal_section(self, z=0):
         gm = self.grid_metrics
@@ -585,18 +596,19 @@ class CylindricalPlasma:
         cycle_lgh = len(list(self.get_pol_ring(0)))
 
         for phi in range(gm.n_phi):
+            state = self.pol_rotation_state(phi)
             for i in range(self.n_pol_rings):
                 ring = list(self.get_pol_ring(i, phi))
-                self._rotation_status[phi][i] += n_steps * len(ring) / cycle_lgh
+                state[i] += n_steps * len(ring) / cycle_lgh
                 if gm.n_r - 2 * i == 1 or gm.n_z - 2 * i == 1:
                     half_ring = len(ring) / 2.0
-                    shift = int(round((self._rotation_status[phi][i]) / half_ring))
-                    self._rotation_status[phi][i] -= half_ring * shift
+                    shift = int(round((state[i]) / half_ring))
+                    state[i] -= half_ring * shift
                     if shift % 2:
                         self._ring_reverse(ring)
                 else:
-                    shift = int(round(self._rotation_status[phi][i]))
-                    self._rotation_status[phi][i] -= shift
+                    shift = int(round(state[i]))
+                    state[i] -= shift
                     self._ring_rotate(ring, shift)
 
     def _index_by_r_phi_z(self, r, phi, z):

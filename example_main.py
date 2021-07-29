@@ -14,7 +14,7 @@ def generate_file(plasma, detector, filename_prefix=''):
     """ Generates data-file for given plasma and detector. """
     # LI = f
     L = detector.build_chord_matrix(plasma)
-    I = plasma.solution
+    I = plasma.lum
     f = detector.right_part(plasma)
     assert dist(L @ I, f) < EPSILON
 
@@ -88,7 +88,7 @@ def example_datafile():
     generate_file(plasma=plasma, detector=detector, filename_prefix='examples/poc_')
 
 
-def example_plot():
+def example_plot_3d():
     """
     Example of drawing geometry setup
     with several detectors in different positions and orientations.
@@ -126,40 +126,46 @@ def example_plot_2d():
     """
     Example of drawing 2d geometry projection and detectors' measurements with several detectors.
     """
-    # creating plasma and 3 different detectors
+    # creating plasma and 2 different detectors
     plasma = PlasmaDrawable(r_min=0.0, r_max=1.0, z_min=-1.0, z_max=1.0)
     plasma.rotate(-0.2)
-    plasma.build_segmentation(n_r=1, n_phi=16, n_z=1)
-    plasma.lum_piece_of_cake(lum=1.0)
+    plasma.build_segmentation(n_r=7, n_phi=7, n_z=7)
+    plasma.lum_trapezoid(lum_cor=1.0, lum_nuc=0.5)
     detectors = []
-    for i in range(3):
-        phi = i * 2.0 * pi / 3
+    for i in range(2):
+        phi = i * pi / 4
         center = Vector3D.from_r_phi(r=2.0, phi=phi)
         aperture = center / 8.0 * 5.0
         d = DetectorDrawable(center=center, aperture=aperture, height=0.3, width=0.3)
-        d.set_pixels(rows=3, cols=16)
+        d.set_pixels(rows=16, cols=16)
         detectors.append(d)
 
     # setup plot
     fig, axs = plt.subplots(2, 2)
     axs = axs.reshape(4)
     ax_polar = fig.add_subplot(221, projection='polar')
-    ax_polar.set_title('Horizontal section')
 
-    # plot plasma
-    plasma.plot_horizontal_section(ax_polar, phi_sep=False, color='red')
+    # plot horizontal section of plasma
+    z = 3
+    ax_polar.set_title('Horizontal section z = {}'.format(z))
+    plasma.plot_horizontal_section(ax_polar, z_number=z, color='red')
+
+    # plot vertical section of plasma
+    phi = 0
+    axs[1].set_title('Vertical section phi = {}'.format(phi))
+    plasma.plot_vertical_section(axs[1], phi_number=phi, color='red')
 
     # plot detectors and their measurements
-    for i, color in zip((range(3)), ('green', 'blue', 'black')):
+    for i, color in zip((range(2)), ('green', 'blue')):
         d = detectors[i]
         d.plot_polar_projection(ax_polar, lines_length=d.lines_length_calculate(plasma), color=color)
         measurements = d.right_part(plasma)
-        axs[i + 1].set_title('{} detector'.format(color))
-        d.plot_right_part(axs[i + 1], measurements)
+        axs[i + 2].set_title('{} detector'.format(color))
+        d.plot_right_part(axs[i + 2], measurements)
 
 
 if __name__ == '__main__':
     example_datafile()
-    example_plot()
+    example_plot_3d()
     example_plot_2d()
     plt.show()

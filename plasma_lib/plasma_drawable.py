@@ -67,7 +67,7 @@ class PlasmaDrawable(CylindricalPlasma):
 
         # fill segments according to their luminance
         kwargs['linewidth'] = 0.0
-        lum_max = max(self.solution)
+        lum_max = max(self.lum)
         for i in self.get_horizontal_section(z_number):
             kwargs['alpha'] = self.segments[i].lum / (lum_max + 0.5)
             self.plot_segment_horizontal(ax_polar, i, **kwargs)
@@ -100,7 +100,7 @@ class PlasmaDrawable(CylindricalPlasma):
 
         # fill segments according to their luminance
         kwargs['linewidth'] = 0.0
-        lum_max = max(self.solution)
+        lum_max = max(self.lum)
         for i in self.get_vertical_section(phi_number):
             kwargs['alpha'] = self.segments[i].lum / (lum_max + 0.5)
             self.plot_segment_vertical(ax, i, **kwargs)

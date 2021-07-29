@@ -262,6 +262,6 @@
 n_segments=64, phi0=0.0
 PlasmaMetrics(r_min=0.0, r_max=0.6, z_min=-0.4, z_max=0.4)
 GridMetrics(n_r=4, n_phi=4, n_z=4, d_r=0.15, d_phi=1.5707963267948966, d_z=0.2)
-_rotation_status=[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
+pol_rotation_state=[[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
 n_pixels=256, rows=16, cols=16
 DetectorMetrics(aperture=Vector3D([ 0.029, -0.677,  0.   ]), center=Vector3D([ 0.0144, -0.7137,  0.    ]), corner=Vector3D([ 0.02879019, -0.71942471, -0.01548709]), normal=Vector3D([0.36964395, 0.92917348, 0.        ]), tangent=Vector3D([-0.92917348,  0.36964395,  0.        ]), top=Vector3D([ 0., -0.,  1.]), height=0.030974182797936765, width=0.030974182797936765, angle=0.0)
