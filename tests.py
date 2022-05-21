@@ -6,7 +6,7 @@ from plasma_lib.cylindrical_plasma import CylindricalPlasma
 from plasma_lib.plasma_drawable import PlasmaDrawable
 from plasma_lib.detector import Detector
 from plasma_lib.detector_drawable import DetectorDrawable
-from utils.math_utils import Vector3D, EPSILON
+from utils.math_utils import Vector3D, EPSILON, dist
 
 
 def matrix_phi_sum(matrix, n_phi):
@@ -32,7 +32,7 @@ def matrix_sum_test(draw=True):
     plasma_separated = PlasmaDrawable()
     plasma_circle.build_segmentation(n_r=n_r, n_phi=1, n_z=n_z)
     plasma_separated.build_segmentation(n_r=n_r, n_phi=n_phi, n_z=n_z)
-    detector = Detector(center=center, aperture=aperture, height=0.4, width=0.5, angle=0.1)
+    detector = Detector(center=center, apertures=aperture, height=0.4, width=0.5, angle=0.1)
 
     matrix_circle = detector.build_chord_matrix(plasma_circle)
     matrix_separated = detector.build_chord_matrix(plasma_separated)
@@ -87,4 +87,45 @@ def matrix_sum_test(draw=True):
     return True
 
 
+def rotation_test():
+    center = (1.4, 1.5, 1.6)
+    aperture = (1.1, 1.12, 1.13)
+    n_r = 7
+    n_phi = 8
+    n_z = 9
+
+    p1 = PlasmaDrawable()
+    p1.build_segmentation(n_r=n_r, n_phi=n_phi, n_z=n_z)
+    p1.lum_trapezoid(1, 0.5)
+    p2 = PlasmaDrawable()
+    p2.build_segmentation(n_r=n_r, n_phi=n_phi, n_z=n_z)
+    p2.lum_trapezoid(1, 0.5)
+
+    lum_initial = p1.lum
+    state_initial = np.array(p1.pol_rotation_state())
+    cycle_lgh = len(list(p1.get_pol_ring(0)))
+
+    for shift in (-4, -1, 5, 34, 1):
+        for i in range(abs(shift)):
+            p1.shift_pol(np.sign(shift))
+        p2.shift_pol(shift)
+        if dist(p1.lum, p2.lum) > EPSILON:
+            return False
+        if dist(np.array(p1.pol_rotation_state()), np.array(p2.pol_rotation_state())) > EPSILON:
+            return False
+
+        p1.shift_pol(-shift)
+        p2.shift_pol(2 * cycle_lgh - shift)
+        if dist(p1.lum, p2.lum) > EPSILON:
+            return False
+        if dist(np.array(p1.pol_rotation_state()), np.array(p2.pol_rotation_state())) > EPSILON:
+            return False
+        if dist(p1.lum, lum_initial) > EPSILON:
+            return False
+        if dist(np.array(p1.pol_rotation_state()), state_initial) > EPSILON:
+            return False
+        return True
+
+
 assert matrix_sum_test()
+assert rotation_test()

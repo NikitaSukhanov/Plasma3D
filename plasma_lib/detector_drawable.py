@@ -8,8 +8,8 @@ class DetectorDrawable(Detector):
     """ A drawable wrapper over the Detector. """
 
     @documentation_inheritance(Detector.__init__)
-    def __init__(self, center, aperture, height=1.0, width=1.0, angle=0.0):
-        super().__init__(center=center, aperture=aperture, height=height, width=width, angle=angle)
+    def __init__(self, center, apertures, height=1.0, width=1.0, angle=0.0):
+        super().__init__(center=center, apertures=apertures, height=height, width=width, angle=angle)
 
     def plot(self, ax, lines_length=None, **kwargs):
         """
@@ -34,7 +34,7 @@ class DetectorDrawable(Detector):
         self._plot_plane(ax, **kwargs)
         self._plot_borders(ax, **kwargs)
         self._plot_pixels(ax, **kwargs)
-        self._plot_aperture(ax, **kwargs)
+        self._plot_apertures(ax, **kwargs)
         if lines_length:
             self._plot_lines(ax, lines_length, **kwargs)
 
@@ -65,11 +65,12 @@ class DetectorDrawable(Detector):
         ax_polar.plot([c1.phi, c2.phi], [c1.r, c2.r], **kwargs)
         if lines_length:
             for c in c1, c2:
-                p = c + lines_length * (dm.aperture - c).normalize()
-                ax_polar.plot([c.phi, p.phi], [c.r, p.r], **kwargs)
+                for a in dm.apertures:
+                    p = c + lines_length * (a - c).normalize()
+                    ax_polar.plot([c.phi, p.phi], [c.r, p.r], **kwargs)
         kwargs.setdefault('facecolors', [0.0, 0.0, 0.0, 0.0])
         kwargs.setdefault('edgecolors', kwargs['color'])
-        ax_polar.scatter(dm.aperture.phi, dm.aperture.r, **kwargs)
+        ax_polar.scatter([a.phi for a in dm.apertures], [a.r for a in dm.apertures], **kwargs)
 
     def plot_right_part(self, ax, right_part, cbar=True, **kwargs):
         """
@@ -138,13 +139,14 @@ class DetectorDrawable(Detector):
         for pixel in self.pixels:
             ax.scatter(*pixel.pos, **kwargs)
 
-    def _plot_aperture(self, ax, **kwargs):
+    def _plot_apertures(self, ax, **kwargs):
         dm = self._detector_metrics
         kwargs.setdefault('facecolors', [0.0, 0.0, 0.0, 0.0])
-        ax.scatter(*dm.aperture, **kwargs)
+        ax.scatter(*zip(*dm.apertures), **kwargs)
 
     def _plot_lines(self, ax, lines_length, **kwargs):
         for pixel in self.pixels:
-            p1 = pixel.pos
-            p2 = p1 + pixel.dir * lines_length
-            ax.plot([p1.x, p2.x], [p1.y, p2.y], [p1.z, p2.z], **kwargs)
+            for a in self.detector_metrics.apertures:
+                p1 = pixel.pos
+                p2 = p1 + pixel.dir(a) * lines_length
+                ax.plot([p1.x, p2.x], [p1.y, p2.y], [p1.z, p2.z], **kwargs)

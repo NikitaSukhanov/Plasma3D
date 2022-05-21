@@ -76,7 +76,7 @@ def example_datafile():
     plasma.lum_gradient(lum_cor=lum_cor, lum_nuc=lum_nuc)
 
     # creating detector with given metrics
-    detector = Detector(center=center, aperture=aperture, height=height, width=width, angle=angle)
+    detector = Detector(center=center, apertures=aperture, height=height, width=width, angle=angle)
     # setting given amount of pixels on detector (by default detector has one pixel at the center)
     detector.set_pixels(rows=rows, cols=cols)
     # generating data-file with specified geometry
@@ -96,11 +96,11 @@ def example_plot_3d():
     # creating plasma and 3 different detectors
     plasma = PlasmaDrawable(r_min=0.0, r_max=1.0, z_min=-1.0, z_max=1.0)
     plasma.build_segmentation(n_r=2, n_phi=4, n_z=2)
-    d1 = DetectorDrawable(center=(-1.5, -1.5, 0.0), aperture=(-1.1, -1.0, 0.0), height=0.6, width=0.6)
+    d1 = DetectorDrawable(center=(-1.5, -1.5, 0.0), apertures=(-1.1, -1.0, 0.0), height=0.6, width=0.6)
     d1.set_pixels(rows=3, cols=3)
-    d2 = DetectorDrawable(center=(0.0, 0.0, 2.5), aperture=(0.0, 0.0, 1.5), height=0.3, width=0.4)
+    d2 = DetectorDrawable(center=(0.0, 0.0, 2.5), apertures=(0.0, 0.0, 1.5), height=0.3, width=0.4)
     d2.set_pixels(rows=2, cols=2)
-    d3 = DetectorDrawable(center=(1.5, -1.2, 0.1), aperture=(1.4, -1.1, 0.07), height=0.1, width=0.2, angle=np.pi / 4)
+    d3 = DetectorDrawable(center=(1.5, -1.2, 0.1), apertures=(1.4, -1.1, 0.07), height=0.1, width=0.2, angle=np.pi / 4)
     d3.set_pixels(rows=4, cols=1)
 
     # setup plot
@@ -117,9 +117,10 @@ def example_plot_3d():
         # plot intersection points
         for segment in plasma.segments:
             for pixel in detector.pixels:
-                points = segment.intersection_points(pixel.pos, pixel.dir)
-                for _, point in points:
-                    ax.scatter(*point, color=color)
+                for a in detector.detector_metrics.apertures:
+                    points = segment.intersection_points(pixel.pos, pixel.dir(a))
+                    for _, point in points:
+                        ax.scatter(*point, color=color)
 
 
 def example_plot_2d():
@@ -136,7 +137,7 @@ def example_plot_2d():
         phi = i * pi / 4
         center = Vector3D.from_r_phi(r=2.0, phi=phi)
         aperture = center / 8.0 * 5.0
-        d = DetectorDrawable(center=center, aperture=aperture, height=0.3, width=0.3)
+        d = DetectorDrawable(center=center, apertures=aperture, height=0.3, width=0.3)
         d.set_pixels(rows=16, cols=16)
         detectors.append(d)
 

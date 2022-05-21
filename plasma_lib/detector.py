@@ -8,17 +8,14 @@ from utils.math_utils import Vector3D, EPSILON
 class Pixel:
     """ Single pixel of detector, has its position and direction to aperture"""
 
-    def __init__(self, pos, aperture):
+    def __init__(self, pos):
         """
         Parameters
         ----------
         pos : Vector3D
             Position of pixel.
-        aperture : Vector3D
-            Position of aperture.
         """
         self._pos = Vector3D(*pos)
-        self._e = (aperture - pos).normalize()
 
     @property
     def pos(self):
@@ -30,15 +27,14 @@ class Pixel:
         """
         return self._pos
 
-    @property
-    def dir(self):
+    def dir(self, aperture):
         """
         Returns
         -------
         Vector3D
             Direction to aperture.
         """
-        return self._e
+        return (aperture - self.pos).normalize()
 
 
 class Detector:
@@ -52,16 +48,16 @@ class Detector:
         - cols
         - n_pixels
     """
-    DetectorMetrics = namedtuple('DetectorMetrics', ['aperture', 'center', 'corner',
+    DetectorMetrics = namedtuple('DetectorMetrics', ['apertures', 'center', 'corner',
                                                      'normal', 'tangent', 'top',
                                                      'height', 'width', 'angle'])
 
-    def __init__(self, center, aperture, height=1.0, width=1.0, angle=0.0):
+    def __init__(self, center, apertures, height=1.0, width=1.0, angle=0.0):
         """
         The position and orientation of the plate is determined by following:
             - Center of plate is given by 'center'.
             - Plate is always oriented such way that it's normal vector points
-              from the center to aperture.
+              from the center to apertures centroid.
             - After first two steps the only remaining degree of freedom is the
               angle of rotation of plate around it's normal, which is given by 'angle'.
             - By default ('angle = 0') the 'width' side of the plate is aligned with XY plane.
@@ -72,8 +68,8 @@ class Detector:
         ----------
         center : iterable
             Center of rectangular plate (detector matrix).
-        aperture : iterable
-            Position of aperture.
+        apertures : iterable
+            Position of apertures.
         height : float, optional
             Height of rectangular plate.
         width : float, optional
@@ -81,9 +77,13 @@ class Detector:
         angle : float, optional
             Angle of rotation of plate around its normal.
         """
-        aperture = Vector3D(*aperture)
+        if isinstance(apertures[0], float) or isinstance(apertures[0], int):
+            apertures = [Vector3D(*apertures)]
+        else:
+            apertures = [Vector3D(*a) for a in apertures]
         center = Vector3D(*center)
-        normal = (aperture - center).normalize()
+        centroid = sum(apertures, Vector3D()) / len(apertures)
+        normal = (centroid - center).normalize()
         if normal.norm <= EPSILON:
             raise ValueError("'center' and 'aperture' could not coincide")
         if height < 0.0 or width < 0.0:
@@ -99,7 +99,7 @@ class Detector:
             top = Vector3D(0.0, 1.0, 0.0).rotate_2d(angle)
 
         corner = center - tangent * width / 2.0 - top * height / 2.0
-        self._detector_metrics = Detector.DetectorMetrics(aperture=aperture, center=center, corner=corner,
+        self._detector_metrics = Detector.DetectorMetrics(apertures=apertures, center=center, corner=corner,
                                                           normal=normal, tangent=tangent, top=top,
                                                           height=height, width=width, angle=angle)
         self.pixels = []
@@ -191,7 +191,7 @@ class Detector:
         for i in range(rows):
             pos = start + i * d_h * dm.top
             for j in range(cols):
-                self.pixels.append(Pixel(pos, dm.aperture))
+                self.pixels.append(Pixel(pos))
                 pos += d_w * dm.tangent
         assert self.n_pixels == self.cols * self.rows
 
@@ -214,9 +214,10 @@ class Detector:
         m = self.n_pixels
         matrix = np.zeros((m, n))
         for i in range(m):
-            p, e = self.pixels[i].pos, self.pixels[i].dir
-            for j in range(n):
-                matrix[i][j] = plasma.segments[j].intersection_length(p, e)
+            for a in self.detector_metrics.apertures:
+                p, e = self.pixels[i].pos, self.pixels[i].dir(a)
+                for j in range(n):
+                    matrix[i][j] += plasma.segments[j].intersection_length(p, e)
         return matrix
 
     def right_part(self, plasma):
@@ -241,9 +242,10 @@ class Detector:
         m = self.n_pixels
         res = np.zeros(m)
         for i in range(m):
-            p, e = self.pixels[i].pos, self.pixels[i].dir
-            for segment in plasma.segments:
-                res[i] += segment.lum * segment.intersection_length(p, e)
+            for a in self.detector_metrics.apertures:
+                p, e = self.pixels[i].pos, self.pixels[i].dir(a)
+                for segment in plasma.segments:
+                    res[i] += segment.lum * segment.intersection_length(p, e)
         return res
 
     def _corners_calculate(self):
